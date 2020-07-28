@@ -9,8 +9,8 @@ def ndcg(ranks):
     return torch.reciprocal((ranks.float() + 1).log2()).sum().item()
 
 
-def bpr(y):
-    ans = - torch.log(torch.sigmoid(y[:, 0].unsqueeze(1) - y))
+def bpr(y, epsilon=1e-9):
+    ans = - torch.log(torch.sigmoid(y[:, 0].unsqueeze(1) - y) + epsilon)
     return ans.mean()
 
 

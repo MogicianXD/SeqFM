@@ -65,7 +65,8 @@ class SeqFM(BaseModel):
         # static_H = self.static_layer_norm(static_H)
         static_H = self.fnn(static_H)
 
-        dynamic_E = self.dynamic_E(dynamic_X)
+        dynamic_freq = 1 / (dynamic_X > 0).sum(-1, keepdim=True).float()
+        dynamic_E = self.dynamic_E(dynamic_X) * dynamic_freq.unsqueeze(-1)
         dynamic_E = self.dropout(dynamic_E)
         dynamic_H = self.dynamic_a(dynamic_E, mask=True)
         dynamic_H = dynamic_H.mean(-2)
@@ -82,7 +83,6 @@ class SeqFM(BaseModel):
 
         f = self.p(h_agg)
 
-        dynamic_freq = 1 / (dynamic_X > 0).sum(-1, keepdim=True).float()
         y = f + self.static_u_w(static_U_X).sum(-2) + \
             self.static_e_w(static_E_X).sum(-2) + \
             self.dynamic_w(dynamic_X).sum(-2) * dynamic_freq     # (bs,)

@@ -9,8 +9,8 @@ Chen Tong, Yin Hongzhi, Hung Nguyen, Peng Wen-Chih, Li Xue, Zhou Xiaofang. (2020
     - `BaseModel.py`: The base class encapsulates device initialization, train & test tasks for rank, classification and regression.
     - `layer.py`: Provides masked softmax function and `SelfAttention` layer along with `MultiHeadSelfAttention`
     - `dataset.py`: Derived from `torch.util.data.Dataset`
-        - `FMDataset`: Dataset for rank and classification with negative sampling.
-        - `RatingDataset`: Dataset for regression with numerical value per sample.
+        - `StaticDynamicDataset`: Dataset for rank and classification with negative sampling.
+        - `StaticDynamicRatingDataset`: Dataset for regression with numerical value per sample.
     - `util.py`: Provides `BPR` loss functions, `MRR` and `NDCG` functions, and other functions.
     - `SeqFM.py`: 
         - `ResFNN`: The residual forward-feeding network specially modified in this model.

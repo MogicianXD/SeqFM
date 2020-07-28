@@ -1,5 +1,5 @@
 import math
-
+import os
 import torch
 from torch import nn
 from torch import optim
@@ -19,14 +19,16 @@ class BaseModel(nn.Module):
         else:
             torch.manual_seed(666)
 
-    def train_test(self, train_task, test_task, train_data, valid_data, test_data=None,
-                   n_epochs=10, lr=0.01, n_metric=2, ref=-1, savepath=None, topk=False, small_better=False):
+    def train_test(self, train_task, test_task, train_data, valid_data, test_data=None, reload=False,
+                   n_epochs=10, lr=0.01, n_metric=2, ref=-1, savepath=None, topk=False, small_better=None):
+        if reload and os.path.exists(savepath):
+            print('reload...')
+            self.load_state_dict(torch.load(savepath))
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
+        if small_better is None:
+            small_better = [False] * n_metric
         best_epoch = [-1] * n_metric
-        if small_better:
-            best_metrics = [1e5] * n_metric
-        else:
-            best_metrics = [0] * n_metric
+        best_metrics = [1e5 if small else 0 for small in small_better]
         self.to(self.device)
         change = False
         for epoch in range(n_epochs):
@@ -40,17 +42,17 @@ class BaseModel(nn.Module):
             for i, m in enumerate(metric):
                 if topk:
                     m = m[-1]
-                if (best_metrics[i] < m) ^ small_better:
+                if (best_metrics[i] < m) ^ small_better[i]:
                     best_metrics[i], best_epoch[i] = m, epoch
                     change = True
-                    if savepath and i == n_metric + ref:
+                    if savepath and i in [ref, n_metric + ref]:
                         torch.save(self.state_dict(), savepath)
             print('best_epoch', best_epoch)
             print('valid', metric)
-            # if test_data and change:
-            #     metric = test_task(test_data)
-            #     print('test', metric)
-            #     change = False
+            if test_data and change:
+                metric = test_task(test_data)
+                print('test', metric)
+                change = False
 
 
     def fit(self, data, task):
@@ -76,9 +78,8 @@ class BaseModel(nn.Module):
         cost = F.cross_entropy(preds, groundtruth)
         return cost
 
-    def fit_nll_neg(self, input_batch):
+    def fit_nll_neg(self, input_batch, epsilon=1e-9):
         preds = torch.sigmoid(self.forward(input_batch))
-        epsilon = 1e-9
         cost = - torch.log(preds[:, 0] + epsilon).sum() - torch.log(1 - preds[:, 1:] + epsilon).sum()
         return cost / preds.shape[0]
 
