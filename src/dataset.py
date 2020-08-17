@@ -13,6 +13,7 @@ class StaticDynamicDataset(Dataset):
         self.target = []
         self.feature = []
         self.dynamic = []
+        self.lengths = []
         self.cur = 0
 
         with open(datapath, 'r') as f:
@@ -38,9 +39,11 @@ class StaticDynamicDataset(Dataset):
                         self.static.append(uid)
                         self.dynamic.append(seq[:i][-maxlen:] + (maxlen - i) * [0])
                         self.target.append(seq[i])
+                    self.lengths.append(min(maxlen, i))
         self.size = len(self.static)
         self.static = np.array(self.static)
         self.dynamic = np.array(self.dynamic)
+        self.lengths = np.array(self.lengths)
         self.target = np.array(self.target)
 
         if neg_sample:
@@ -56,9 +59,9 @@ class StaticDynamicDataset(Dataset):
 
     def __getitem__(self, indice):
         if self.feature:
-            return self.static[indice], self.target[indice], self.feature[indice], self.dynamic[indice]
+            return self.static[indice], self.target[indice], self.feature[indice], self.dynamic[indice], self.lengths[indice]
         else:
-            return self.static[indice], self.target[indice], self.dynamic[indice]
+            return self.static[indice], self.target[indice], self.dynamic[indice], self.lengths[indice]
 
     def __len__(self):
         return self.size
@@ -91,6 +94,7 @@ class StaticDynamicRatingDataset(Dataset):
         self.target = []
         self.feature = []
         self.dynamic = []
+        self.lengths = []
         self.gt = []
         self.cur = 0
 
@@ -103,11 +107,13 @@ class StaticDynamicRatingDataset(Dataset):
                 for i in range(1, len(seq)) if augment else [len(seq) - 1]:
                     self.static.append(uid)
                     self.dynamic.append(seq[:i][-maxlen:] + (maxlen - i) * [0])
+                    self.lengths.append(min(maxlen, i))
                     self.target.append(seq[i])
                     self.gt.append(rating[i])
         self.size = len(self.static)
         self.static = np.array(self.static)
         self.dynamic = np.array(self.dynamic)
+        self.lengths = np.array(self.lengths)
         self.target = np.array(self.target)
 
         self.static = np.expand_dims(self.static, -1)
@@ -123,9 +129,11 @@ class StaticDynamicRatingDataset(Dataset):
 
     def __getitem__(self, indice):
         if self.feature:
-            return (self.static[indice], self.target[indice], self.feature[indice], self.dynamic[indice]), self.gt[indice]
+            return (self.static[indice], self.target[indice], self.feature[indice],
+                    self.dynamic[indice], self.lengths[indice]), self.gt[indice]
         else:
-            return (self.static[indice], self.target[indice], self.dynamic[indice]), self.gt[indice]
+            return (self.static[indice], self.target[indice], self.dynamic[indice],
+                    self.lengths[indice]), self.gt[indice]
 
     def __len__(self):
         return self.size

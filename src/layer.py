@@ -25,10 +25,15 @@ class SelfAttention(nn.Module):
         self.WK = nn.Linear(dim, dim, bias=False)
         self.WV = nn.Linear(dim, dim, bias=False)
 
-    def forward(self, E, mask=False):
+    def forward(self, E, mask=False, static_dim=0):
         W = torch.matmul(self.WQ(E), self.WK(E).transpose(-1, -2)) / self.scale_factor
         if mask:
-            M = torch.tril(W.new_ones(W.shape))
+            if static_dim > 0:
+                M = W.new_ones(W.shape[1:])
+                M[:static_dim, static_dim:] = 1
+                M[static_dim:, :static_dim] = 1
+            else:
+                M = torch.tril(W.new_ones(W.shape[1:]))
             M = torch.where(W == 0, torch.zeros_like(M), M)
             W = masked_softmax(W, M)
             # W = softmax_tril(W)
@@ -44,8 +49,8 @@ class MultiHeadSelfAttetion(nn.Module):
         self.layers = nn.ModuleList([SelfAttention(dim) for i in range(n_layers)])
         self.WO = nn.Linear(n_layers * dim, dim, bias=False)
 
-    def forward(self, E, mask=False):
-        heads = [attention(E, mask) for attention in self.layers]
+    def forward(self, E, mask=False, static_dim=-1):
+        heads = [attention(E, mask, static_dim) for attention in self.layers]
         return self.WO(torch.cat(heads, -1))
 
 

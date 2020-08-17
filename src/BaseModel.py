@@ -19,17 +19,25 @@ class BaseModel(nn.Module):
         else:
             torch.manual_seed(666)
 
-    def train_test(self, train_task, test_task, train_data, valid_data, test_data=None, reload=False,
-                   n_epochs=10, lr=0.01, n_metric=2, ref=-1, savepath=None, topk=False, small_better=None):
-        if reload and os.path.exists(savepath):
-            print('reload...')
-            self.load_state_dict(torch.load(savepath))
-        self.optimizer = optim.Adam(self.parameters(), lr=lr)
+    def train_test(self, train_task, test_task, train_data, valid_data, test_data=None,
+                   reload=False, n_epochs=10, lr=0.01, n_metric=2, ref=-1,
+                   savepath=None, loadpath=None, topk=False, small_better=None):
+        if reload:
+            if loadpath is None:
+                loadpath = savepath
+            if os.path.exists(loadpath):
+                print('reload...')
+                # self.load_state_dict(torch.load(savepath))
+                load_state = torch.load(loadpath)
+                model_state = self.state_dict()
+                model_state.update(load_state)
+                self.load_state_dict(model_state)
         if small_better is None:
             small_better = [False] * n_metric
         best_epoch = [-1] * n_metric
         best_metrics = [1e5 if small else 0 for small in small_better]
         self.to(self.device)
+        self.optimizer = optim.Adam(self.parameters(), lr=lr)
         change = False
         for epoch in range(n_epochs):
             avgc = self.fit(train_data, train_task)
@@ -49,10 +57,10 @@ class BaseModel(nn.Module):
                         torch.save(self.state_dict(), savepath)
             print('best_epoch', best_epoch)
             print('valid', metric)
-            if test_data and change:
-                metric = test_task(test_data)
-                print('test', metric)
-                change = False
+            # if test_data and change:
+            #     metric = test_task(test_data)
+            #     print('test', metric)
+            #     change = False
 
 
     def fit(self, data, task):
@@ -74,6 +82,7 @@ class BaseModel(nn.Module):
 
     def fit_nll(self, input_batch):
         input_X, groundtruth = input_batch
+        groundtruth = groundtruth.to(self.device)
         preds = self.forward(input_X)
         cost = F.cross_entropy(preds, groundtruth)
         return cost

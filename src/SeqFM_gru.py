@@ -29,10 +29,6 @@ class SeqFM(BaseModel):
             self.feature_E = nn.Embedding(feature_m + 1, emb_dim, padding_idx=0)
         self.static_E = nn.Embedding(dynamic_m + 1, emb_dim, padding_idx=0)
         self.dynamic_E = nn.Embedding(dynamic_m + 1, emb_dim, padding_idx=0)
-        self.pos_emb_dim = pos_emb_dim
-        if pos_emb_dim > 0:
-            self.position_emb = nn.Embedding(pos_emb_dim + 1, emb_dim, padding_idx=0)
-            self.position_ids = torch.arange(1, pos_emb_dim + 1, device=self.device)
         if n_head > 1:
             self.static_a = MultiHeadSelfAttetion(emb_dim, n_head)
             self.dynamic_a = MultiHeadSelfAttetion(emb_dim, n_head)
@@ -55,6 +51,7 @@ class SeqFM(BaseModel):
         self.static_layer_norm = nn.LayerNorm(emb_dim)
         self.dynamic_layer_norm = nn.LayerNorm(emb_dim)
         self.cross_layer_norm = nn.LayerNorm(emb_dim)
+        self.gru = nn.GRU(emb_dim, emb_dim)
 
     def forward(self, X):
         for i in range(len(X)):
@@ -76,18 +73,20 @@ class SeqFM(BaseModel):
         # static_H = self.static_layer_norm(static_H)
         static_H = self.fnn(static_H)
 
+        # lengths = (dynamic_X > 0).sum(-1)
         dynamic_freq = 1 / lengths.float().unsqueeze(-1)
         if dynamic_X.dim() == 3:
             dynamic_freq = dynamic_freq.unsqueeze(-1)
         dynamic_E = self.dynamic_E(dynamic_X) * dynamic_freq.unsqueeze(-1)
-        if self.pos_emb_dim > 0:
-            position_ids = torch.where(dynamic_X == 0, dynamic_X.new_zeros(dynamic_X.shape),
-                                       self.position_ids)
-            dynamic_E += self.position_emb(position_ids)
         dynamic_E = self.dropout(dynamic_E)
         dynamic_H = self.dynamic_a(dynamic_E, mask=True)
-        dynamic_H = dynamic_H.mean(-2)
+
+        dynamic_H = dynamic_H.view(dynamic_H.shape[-2], -1, dynamic_H.shape[-1])
+        _, dynamic_H = self.gru(dynamic_H)
+        dynamic_H = dynamic_H.squeeze(0)
         # dynamic_H = self.dynamic_layer_norm(dynamic_H)
+        if dynamic_X.dim() == 3:
+            dynamic_H = dynamic_H.view(dynamic_X.shape[0], dynamic_X.shape[1], dynamic_H.shape[-1])
         if self.unshared:
             dynamic_H = self.fnn2(dynamic_H)
         else:
