@@ -62,8 +62,6 @@ if not args.savepath:
     # args.loadpath = args.savepath + '.model'
     if args.unshared:
         args.savepath += '_unshared'
-    elif args.concat:
-        args.savepath += '_concat'
     elif args.gru:
         args.savepath += '_gru'
     elif args.position:
